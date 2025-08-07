@@ -1,3 +1,14 @@
+"""Outil d'audit des applications et jobs VTOM.
+
+Le script interroge l'API VTOM afin de récupérer les environnements,
+les applications et les jobs, puis vérifie plusieurs règles de nommage
+et de configuration. Les résultats sont exportés dans un fichier Excel
+et un résumé est affiché en console.
+
+L'objectif est d'aider à standardiser les traitements VTOM avec des
+messages clairs pour les opérateurs.
+"""
+
 import re
 import requests
 import pandas as pd
@@ -16,32 +27,61 @@ HEADERS = {"accept": "application/json", "X-API-KEY": API_KEY}
 
 # === APPELS API VTOM ===
 def get_environments():
-    return requests.get(f"{VTOM_HOST}/vtom/public/domain/5.0/environments", headers=HEADERS).json()
+    """Retourne tous les environnements configurés dans VTOM."""
+    return requests.get(
+        f"{VTOM_HOST}/vtom/public/domain/5.0/environments", headers=HEADERS
+    ).json()
 
 def get_applications(env):
-    return requests.get(f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications", headers=HEADERS).json()
+    """Liste les applications d'un environnement donné."""
+    return requests.get(
+        f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications",
+        headers=HEADERS,
+    ).json()
 
 def get_jobs(env, app):
-    return requests.get(f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs", headers=HEADERS).json()
+    """Récupère tous les jobs d'une application."""
+    return requests.get(
+        f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs",
+        headers=HEADERS,
+    ).json()
 
 def get_job_detail(env, app, job):
-    return requests.get(f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs/{job}", headers=HEADERS).json()
+    """Obtient le détail d'un job (instruction, contexte, etc.)."""
+    return requests.get(
+        f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs/{job}",
+        headers=HEADERS,
+    ).json()
 
 def get_job_links(env, app, job):
-    res = requests.get(f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs/{job}/links", headers=HEADERS)
+    """Renvoie les dépendances (liens) liées à un job."""
+    res = requests.get(
+        f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs/{job}/links",
+        headers=HEADERS,
+    )
     return res.json() if res.status_code == 200 else []
 
 def get_job_alarms(env, app, job):
-    res = requests.get(f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs/{job}/alarms", headers=HEADERS)
+    """Récupère la liste des alarmes associées à un job."""
+    res = requests.get(
+        f"{VTOM_HOST}/vtom/public/domain/5.0/environments/{env}/applications/{app}/jobs/{job}/alarms",
+        headers=HEADERS,
+    )
     return res.text.strip() if res.status_code == 200 else ""
 
 
 def load_exceptions(filepath):
+    """Lit un fichier d'exceptions et retourne deux ensembles.
+
+    Le fichier peut contenir des applications entières ou des couples
+    "application:job" à exclure des contrôles.
+    """
     apps = set()
     jobs = set()
     with open(filepath, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
+            # On ignore les lignes vides ou commentées
             if not line or line.startswith("#"):
                 continue
             if ":" in line:
@@ -54,15 +94,17 @@ def load_exceptions(filepath):
 
 # === GESTION DE LA CRITICITÉ ===
 def get_job_criticite(job_name):
+    """Déduit la criticité d'un job d'après son préfixe."""
     if job_name.startswith("C1"):
         return 1
     elif job_name.startswith("C2"):
         return 2
     elif job_name.startswith("C3"):
         return 3
-    return 99
+    return 99  # 99 = non classé
 
 def get_criticite_from_name(name):
+    """Extrait la criticité (C1, C2...) du nom d'une entité."""
     match = re.match(r"(C\d)_", name)
     if match:
         return int(match.group(1)[1])
@@ -70,11 +112,12 @@ def get_criticite_from_name(name):
 
 # === CONTRÔLES APPLICATIONS ===
 def check_application(env, app, jobs):
+    """Vérifie les règles de base d'une application VTOM."""
     criticite_appli = get_criticite_from_name(app["name"])
     max_job_criticite = min([get_job_criticite(j["name"]) for j in jobs] + [99])
     mode_exec = app.get("execMode", "")
 
-    # Variables pour erreurs
+    # Dictionnaire pour accumuler les erreurs trouvées
     errors = {}
 
     # Nomenclature
@@ -112,6 +155,7 @@ def check_application(env, app, jobs):
 
 # === CONTRÔLES JOBS ===
 def check_job(env, app_name, job):
+    """Contrôle un job et renvoie le détail des vérifications."""
     job_name = job.get("name", "")
     detail = get_job_detail(env, app_name, job_name)
     links = get_job_links(env, app_name, job_name)
@@ -122,7 +166,7 @@ def check_job(env, app_name, job):
 
     errors = {}
 
-    # Nomenclature
+    # Vérifie le format du nom du job
     if re.match(r"^C\d_[A-Z0-9]{2,3}_[A-Z0-9]{2,3}(?:_[A-Z0-9]{2,3})?_[A-Za-z0-9]+$", job_name):
         nomenclature = "OK"
     else:
@@ -284,6 +328,7 @@ if __name__ == "__main__":
 
     # === RÉSUMÉ CONSOLE ===
     def analyze_errors(results, statut_key):
+        """Compte le nombre d'erreurs par type pour un ensemble de résultats."""
         error_counter = Counter()
         for r in results:
             for key, val in r.items():
