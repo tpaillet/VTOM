@@ -1,0 +1,19 @@
+### GET ENVIRONMENTS ###
+GET {{vtomHost}}/vtom/public/domain/5.0/environments HTTP/1.1
+accept: application/json
+X-API-KEY: {{vtomApiKey}}
+
+### GET APPLICATIONS BY ENVIRONMENT NAME ###
+GET {{vtomHost}}/vtom/public/domain/5.0/environments/COMMERCE_SELF/applications HTTP/1.1
+accept: application/json
+X-API-KEY: {{vtomApiKey}}
+
+### GET JOBS BY ENVIRONMENT NAME AND APPLICATION NAME ###
+GET {{vtomHost}}/vtom/public/domain/5.0/environments/COMMERCE_SELF/applications/C3_COM_InitKeyneoMagasins/jobs HTTP/1.1
+accept: application/json
+X-API-KEY: {{vtomApiKey}}
+
+### GET JOB LINKS BY ENVIRONMENT NAME, APPLICATION NAME AND JOB NAME ###
+GET {{vtomHost}}/vtom/public/domain/5.0/environments/COMMERCE_SELF/applications/C3_COM_InitKeyneoMagasins/jobs/C3_SQL_ATH_InitKeyneoSemarchy/links HTTP/1.1
+accept: application/json
+X-API-KEY: {{vtomApiKey}}

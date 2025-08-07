@@ -1,0 +1,9 @@
+# Liste des applications ou jobs à ignorer
+
+# Exemple de valeurs : 
+
+# C1_OPB_GenerationXML -> Pour que tous les jobs de l'apppli soient ignorés
+# C3_ATH_RefExtractionFra:C3_SQL_ATH_ProcStockPneuToutGammeFra -> Seul le job sera ignoré
+
+C1_OPB_GenerationXML
+C3_ATH_RefExtractionFra:C3_SQL_ATH_ProcStockPneuToutGammeFra
